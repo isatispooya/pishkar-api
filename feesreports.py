@@ -134,7 +134,7 @@ def getField(data):
     if user['replay']:
         df = pd.DataFrame(pishkarDb['Fees'].find({'username':username},{'_id':0,'مورد بیمه':1,'رشته':1}))
         dfissuing = pd.DataFrame(pishkarDb['issuing'].find({'username':username},{'_id':0,'مورد بیمه':1,'رشته':1}))
-        df = pd.concat([df.dfissuing])
+        df = pd.concat([df,dfissuing])
         df = df.fillna('')
         df['Field'] = df['رشته'] + ' '+ '('+ df['مورد بیمه'] + ')'
         df = [str(x).replace(' ()','') for x in df['Field']]
