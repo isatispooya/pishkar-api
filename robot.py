@@ -5,7 +5,7 @@ import pandas as pd
 from SystemMassage import splitCode
 from customers import splitName
 import time
-from sms import SendSms
+from sms import SendSms , CheckDeliver
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
 
@@ -52,19 +52,19 @@ def dicSend(dic,username,hours):
             phone = i['phone']
             text = 'بیمه گذار محترم\n'+i['name']+'\n'+'با سلام و احترام اعلام میداریم که'
             if len(i['feilds'])==1:
-                text = text+' بیمه نامه ی '+i['feilds'][0]
+                text = text+' بیمه نامه ی "'+i['feilds'][0]+'"'
             else:
                 text = text+' بیمه نامه های '
                 for j in i['feilds']:
-                    text = text + j + ' ,'
+                    text = text + '"' + j + '"' + ' ,'
                 text = text[:-1]
             text = text + ' شما طی '+i['prevDay']+' روز دیگر '+'منقضی خواهد شد '+' لطفا برای تمدید آن به '+i['companyName'] +' به آدرس '+i['address'] +' مراجعه و یا با شماره '+i['phonework']+'تماس بگیرید'+'\n'+i['web']
             lastSend = pishkarDb['SendedSms'].find({'username':username,'prevDay':i['prevDay'],'hours':hours,'text':text})
-            if lastSend==None:
-                code = SendSms('09011010959',text) # شماره مشتری موقتا با شماره خودم تغییر دادم برای تست
+            lastSend = [x for x in lastSend]
+            if len(lastSend)==0:
+                code = SendSms(phone,text)
                 for p in i['codeIns']:
-                    pishkarDb['SendedSms'].insert_one({'username':username,'codeIns':p,'customer':i['name'],'codeDeliver':code,'text':text,'prevDay':i['prevDay'],'date':datetime.datetime.now(),'hours':hours})
-
+                    pishkarDb['SendedSms'].insert_one({'username':username,'codeIns':p,'customer':i['name'],'codeDeliver':code,'text':text,'prevDay':i['prevDay'],'date':datetime.datetime.now(),'hours':hours,'deliver':False})
 
 
 def smsNoLifeRevival():
@@ -78,13 +78,20 @@ def smsNoLifeRevival():
                 dicSend(ins,i['username'],i['time'])
 
 
-
-
-
-
+def checkDelivers():
+    df = pd.DataFrame(pishkarDb['SendedSms'].find({'deliver':False}))
+    for i in df.index:
+        if (df['date'][i] + datetime.timedelta(days=3))>datetime.datetime.now():
+            cd = CheckDeliver(df['codeDeliver'][i])
+            if cd['statusCode'] ==200:
+                if int(cd['content'].decode('utf-8')) == 1:
+                    pishkarDb['SendedSms'].update_one({'_id':df['_id'][i]},{'$set':{'deliver':True}})
 
 
 while True:
+    print('start loop')
     smsNoLifeRevival()
-    time.sleep(900000)
+    time.sleep(300)
+    checkDelivers()
+    time.sleep(1500)
 

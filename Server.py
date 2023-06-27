@@ -208,10 +208,22 @@ def management_setsettingsms():
     data = request.get_json()
     return management.setsettingsms(data)
 
+@app.route('/management/personalized',methods = ['POST'])
+def management_personalized():
+    data = request.get_json()
+    return management.personalized(data)
+
+
 @app.route('/management/getsettingsms',methods = ['POST'])
 def management_getsettingsms():
     data = request.get_json()
     return management.getsettingsms(data)
+
+@app.route('/management/getallrevivalbydate',methods = ['POST'])
+def management_getallrevivalbydate():
+    data = request.get_json()
+    return management.getallrevivalbydate(data)
+
 
 #----------------- General -----------------
 @app.route('/general/today',methods = ['POST', 'GET'])

@@ -3,7 +3,9 @@ import numpy as np
 import pymongo
 import pandas as pd
 from Sing import cookie, ErrorCookie
-
+import timedate
+import datetime
+import sms
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
 
@@ -500,5 +502,50 @@ def getsettingsms(data):
         df = df.sort_values('name')
         df = df.to_dict('records')
         return json.dumps({'replay':True,'df':df})
+    else:
+        return ErrorCookie()
+
+
+
+def getallrevivalbydate(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        df = pd.DataFrame(pishkarDb['SendedSms'].find({'username':username},{'_id':0,'username':0,'codeDeliver':0}))
+        if len(df) == 0:
+            return json.dumps({'replay':False,'msg':'هیچ پیامکی یافت نشد'})
+        if data['Date']['from'] != None:
+            frm = datetime.datetime.fromtimestamp(data['Date']['from']/1000)
+            df = df[df['date']>=frm]
+        if data['Date']['to'] != None:
+            to = datetime.datetime.fromtimestamp(data['Date']['to']/1000)
+            df = df[df['date']<=to]
+        if len(df) == 0:
+            return json.dumps({'replay':False,'msg':'هیچ پیامکی یافت نشد'})
+        df['dateJalali'] = [str(timedate.GregorianToPersian(x)).replace('-','/') for x in df['date']]
+        df['time'] = [str(x.hour)+':'+str(x.minute) for x in df['date']]
+        df = df.drop(columns=['date'])
+        df = df.to_dict('records')
+        return json.dumps({'replay':True,'df':df})
+    else:
+        return ErrorCookie()
+
+
+
+def personalized(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        for i in data['listCustomer']:
+            chphone = timedate.CheckPhone(i['تلفن همراه'])
+            name = i['name']
+            if chphone['replay']==False:
+                return json.dumps({'replay':False,'msg':f'شماره همراه {name} صحیح نیست'})
+            phone = chphone['phone']
+            codrDeliver = sms.SendSms(phone,data['textMsg'])
+            pishkarDb['SendedSms'].insert_one({'username':username,'codeIns':0,'customer':name,'codeDeliver':codrDeliver,'text':data['textMsg'],'prevDay':0,'date':datetime.datetime.now(),'hours':0,'deliver':False})
+        return json.dumps({'replay':True})
     else:
         return ErrorCookie()

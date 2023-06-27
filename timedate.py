@@ -266,8 +266,10 @@ def qestList(years,date,amount):
 def qestListNoLimet(years,date,amount,endDate):
     gregorian = PersianToGregorian(date)
     endDatea = PersianToGregorian(endDate)
+
     endDate = min(endDatea,PersianToGregorian(str(int(years) + int(date[0:4])) + date[4:]),datetime.datetime.now().date())
     df = pd.date_range(start=gregorian,end=endDate,freq= str(int(12/int(amount)))+'M').shift(-1, freq='M').sort_values().shift(int(str(gregorian).split('-')[-1]), freq='D')
+
     df = [str(GregorianToPersian(x)) for x in df]
     return df
 
@@ -302,3 +304,14 @@ def dateToMonthDay(date):
     date = str(date).split('/')
     md = date[1]+date[2]
     md = int(md)
+
+
+
+
+def CheckPhone(phone):
+    phone = str(phone)
+    if len(phone) == 10 and phone[0]!=0:
+        phone = '0'+phone
+    if len(phone)!=11:
+        return {'replay':False}
+    return {'replay':True,'phone':phone}

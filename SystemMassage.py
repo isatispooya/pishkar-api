@@ -340,6 +340,8 @@ def lifeRevival(data):
         else:
             for i in df.index:
                 dic = df[df.index==i].to_dict('records')[0]
+                print('-'*10)
+                print(dic)
                 qestlist = timedate.qestListNoLimet(dic['مدت'],dic['تاريخ شروع'],dic['تعداد اقساط در سال'],dic['تاريخ  انقضاء'])
                 
                 for j in qestlist:

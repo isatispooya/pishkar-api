@@ -379,7 +379,7 @@ def delissuingmanual(data):
     user = json.loads(user)
     username = user['user']['phone']
     if user['replay']:
-        pishkarDb['issuing'].delete_many({'username':username,'comp':data['dict']['comp'],'کد رایانه صدور بیمه نامه':data['dict']['کد رایانه صدور بیمه نامه'],'تاریخ سررسید':data['dict']['تاریخ سررسید'],'شماره بيمه نامه':data['dict']['شماره بيمه نامه']})
+        pishkarDb['issuing'].delete_many({"_id":ObjectId(data['dict']['_id'])})
         return json.dumps({'replay':True})
     else:
         return ErrorCookie()
@@ -469,8 +469,10 @@ def sales(data):
         dd = issuing[issuing['comp']=='ما']
         dd = dd[dd['شماره بيمه نامه']==30].to_dict('records')[-1]['Date']
 
-        issuing = issuing[issuing['Date']>=int(data['Date']['from'])-3600001]
-        issuing = issuing[issuing['Date']<=int(data['Date']['to']+3600001)]
+        issuing = issuing[issuing['Date']>=int(data['Date']['from'])]
+        issuing = issuing[issuing['Date']<=int(data['Date']['to'])]
+        #issuing = issuing[issuing['Date']>=int(data['Date']['from'])-3600001]
+        #issuing = issuing[issuing['Date']<=int(data['Date']['to']+3600001)]
         issuing = issuing.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','شماره بيمه نامه','comp','additional','مبلغ کل حق بیمه','تاریخ عملیات'])
         issuing['count'] = 1
         issuing['countAdd'] = issuing['additional']=='اضافی'
@@ -485,7 +487,7 @@ def sales(data):
         issuing = issuing[['شماره بيمه نامه','پرداخت کننده حق بیمه','Field','comp','مبلغ کل حق بیمه','count', 'countAdd', 'countdiff']]
         issuing.columns =['شماره بيمه نامه', 'نام بیمه گذار', 'Field', 'comp','مبلغ کل حق بیمه', 'count', 'countAdd', 'countdiff']
 
-        issuing = issuing.append(issuingLife)
+        issuing = pd.concat([issuing,issuingLife])
         issuing['tax'] = [('درمان' in x or 'زندگی' in x) for x in issuing['Field']]
         issuing['tax'] = issuing['tax'].replace(False,'1.09').replace(True,'1')
         issuing['tax'] = [float(x) for x in issuing['tax']]
@@ -496,9 +498,7 @@ def sales(data):
         df = df.reset_index()
         df = df.set_index(['Field']).join(stndrd.set_index(['field']),how='left').reset_index()
         df['groupMain'] = df['groupMain'].fillna('دیگر')
-        for i in df.index:
-            if df['groupMain'][i] == 'دیگر' and df['index'][i] == 'زندگی':
-                df['groupMain'][i] = 'عمر و سرمایه گذاری'
+        df['groupMain'] = df['groupMain'].replace('دیگر','عمر و سرمایه گذاری').replace('زندگی','عمر و سرمایه گذاری')
         df.columns = ['Field', 'comp', 'مبلغ کل حق بیمه', 'count', 'countAdd', 'countdiff','tax','groupMain']
         df['_children'] = ''
         df = df.to_dict('records')
@@ -552,7 +552,7 @@ def lifefile(cookier,file,comp):
     username = user['user']['phone']
     if user['replay']:
         reqColumns =['مدت','تاريخ شروع','تاريخ  انقضاء','شماره رایانه بیمه نامه','روش پرداخت','طرح','شماره بيمه نامه','نام بیمه گذار','کد ملی بیمه گذار','ضریب رشد سالانه سرمایه بیمه','ضریب رشد سالانه حق بیمه','تعداد اقساط در سال','حق بیمه هر قسط \n(جمع عمر و پوششها)']
-        df = pd.read_excel(file)
+        df = pd.read_excel(file,dtype={'شماره بيمه نامه':str})
         df.columns = [x.replace('مدت ', 'مدت').replace('حق بیمه هر قسط _x000D_\n(جمع عمر و پوششها)','حق بیمه هر قسط \n(جمع عمر و پوششها)') for x in df.columns]
         try: df['تعداد اقساط در سال'] = [int(x) for x in df['تعداد اقساط در سال']]
         except: return json.dumps({'replay':False,'msg':"ستون 'تعداد اقساط در سال' میبایست فقط اعداد باشد"})
@@ -562,7 +562,7 @@ def lifefile(cookier,file,comp):
         dff = pd.DataFrame(pishkarDb['issuingLife'].find({'comp':comp},{'_id':0}))
         df['comp'] = comp
         df['username'] = username
-        df.append(dff, ignore_index=True)
+        df = pd.concat([df,dff])
         df = df.drop_duplicates(subset=['شماره بيمه نامه'],keep='last')
         try:df['status'] = df['status'].fillna('جاری')
         except:df['status'] = 'جاری'
