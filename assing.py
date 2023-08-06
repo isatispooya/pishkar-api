@@ -59,7 +59,7 @@ def get(data):
         AssingIssuingLife = pd.DataFrame(pishkarDb['AssingIssuingLife'].find({'username':username},{'_id':0,'username':0}))
         if len(dfissuing)==0: df['issuing'] = ''
         else:
-            df['کد رایانه صدور'] = [str(x) for x in df['کد رایانه صدور']]
+            df['کد رایانه صدور'] = [str(x).replace('.0','') for x in df['کد رایانه صدور']]
             df = df.set_index(['کد رایانه صدور','comp'])
             dfissuing.columns = ['comp','کد رایانه صدور','issuing']
             dfissuing['کد رایانه صدور'] = [str(x) for x in dfissuing['کد رایانه صدور']]

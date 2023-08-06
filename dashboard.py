@@ -37,7 +37,9 @@ def issunigSum(data):
         if data['period'] == '365': df['group'] = [timedate.PersianToGregorianSixter(x) for x in df['تاریخ عملیات']]
         df = df.groupby(['group']).sum(numeric_only=True)[['مبلغ کل حق بیمه']]
         df = df.sort_index(ascending=False).reset_index()
-        df = df[df.index>df.index.max()-15]
+
+        df = df[df.index<df.index.min()+15]
+
         labels = df['group'].to_list()
         dataa = df['مبلغ کل حق بیمه'].to_list()
         return json.dumps({'replay':True,'df':{'labels':labels,'datasets':[{'id':0,'data':dataa}]}})

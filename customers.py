@@ -87,6 +87,7 @@ def customermanual(data):
     username = user['user']['phone']
     if user['replay']:
         df = pd.DataFrame(pishkarDb['customers'].find({'username':username},{'_id':0}))
+        print(df)
         df = df[['name','code','کد ملي بيمه گذار','آدرس','تلفن همراه','comp']]
         df = df.fillna('')
         df = df.to_dict('records')

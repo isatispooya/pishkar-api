@@ -323,6 +323,7 @@ def getIssuingLifeManual(data):
         df['حق بیمه هر قسط \n(جمع عمر و پوششها)'] = [int(x) for x in df['حق بیمه هر قسط \n(جمع عمر و پوششها)']]
         df['حق بیمه'] = df['حق بیمه هر قسط \n(جمع عمر و پوششها)'] * df['تعداد اقساط در سال']
         df = df.fillna('')
+        df.to_excel('dff.xlsx')
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
@@ -570,6 +571,7 @@ def lifefile(cookier,file,comp):
         pishkarDb['issuingLife'].insert_many(df)
     return json.dumps({'replay':True})
 
+
 def deldfLife(data):
     user = cookie(data)
     user = json.loads(user)
@@ -621,7 +623,9 @@ def addenLife(data):
     user = json.loads(user)
     username = user['user']['phone']
     if user['replay']:
-        df = pd.DataFrame(pishkarDb['AddenLife'].find({'username':username},{'_id':0,'username':0})).to_dict('records')
+        df = pd.DataFrame(pishkarDb['AddenLife'].find({'username':username},{'_id':0,'username':0}))
+
+        df = df.to_dict('records')
         return json.dumps({'replay':True,'df':df})
     else:
         return ErrorCookie()

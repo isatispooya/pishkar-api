@@ -41,7 +41,8 @@ def getfeesuploads(data):
         df = pd.DataFrame(pishkarDb['Fees'].find({'username':username}))
         if len(df)>0:
             df = df[['comp','UploadDate','کد رایانه صدور','شماره بيمه نامه','كارمزد قابل پرداخت']]
-            df = df.drop_duplicates()
+            if df['comp'][df.index.min()] in ['خاور میانه','ایران'] :
+                df = df.drop_duplicates()
             df = df.groupby(by=['comp','UploadDate']).sum(numeric_only=True).reset_index()
             df = df[['comp','UploadDate','كارمزد قابل پرداخت']]
             insurec = pd.DataFrame(pishkarDb['insurer'].find({'username':username},{'نام':1,'بیمه گر':1,'_id':0}))

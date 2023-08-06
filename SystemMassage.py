@@ -76,7 +76,10 @@ def customerCheck(data):
         df = pd.DataFrame(pishkarDb['customers'].find({'username':username},{'_id':0}))
         df = df[['name','کد ملي بيمه گذار','تلفن همراه','comp','code']]
         df = df.set_index(['comp','code'])
+        dfLifeIssuing = pd.DataFrame(pishkarDb['issuingLife'].find({'username':username},{'_id':0,'comp':1,'نام بیمه گذار':1}))
+        dfLifeIssuing = dfLifeIssuing.rename(columns={'نام بیمه گذار':'پرداخت کننده حق بیمه'})
         dfissuing = pd.DataFrame(pishkarDb['issuing'].find({'username':username},{'_id':0,'comp':1,'پرداخت کننده حق بیمه':1}))
+        dfissuing = pd.concat([dfissuing,dfLifeIssuing])
         dfissuing['code'] = [splitCode(x) for x in dfissuing['پرداخت کننده حق بیمه']]
         dfissuing = dfissuing[['code','comp']]
         dfissuing['in'] = True
@@ -340,8 +343,6 @@ def lifeRevival(data):
         else:
             for i in df.index:
                 dic = df[df.index==i].to_dict('records')[0]
-                print('-'*10)
-                print(dic)
                 qestlist = timedate.qestListNoLimet(dic['مدت'],dic['تاريخ شروع'],dic['تعداد اقساط در سال'],dic['تاريخ  انقضاء'])
                 
                 for j in qestlist:
@@ -526,14 +527,11 @@ def customerincomp(data):
         df = pd.concat([dfIssuing,dfIssuinglife])
         df['customer'] = df['code'].copy()
         df['code'] = [splitCode(x).replace(' ','') for x in df['code']]
-
-
         df = df.set_index(['code','comp'])
         df = df.drop_duplicates()
-
-
         dfCostomer = pd.DataFrame(pishkarDb['customers'].find({'username':username},{'_id':0,'code':1,'comp':1,'بيمه گذار':1}))
         dfCostomer.columns = ['customerc','comp','code']
+        dfCostomer['code'] = [str(x).replace(' ', '') for x in dfCostomer['code']]
         dfCostomer['Available'] = True
         dfCostomer = dfCostomer.drop_duplicates()
         dfCostomer = dfCostomer.set_index(['code','comp'])

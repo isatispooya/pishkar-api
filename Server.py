@@ -705,6 +705,17 @@ def issuing_nofee():
     data = request.get_json()
     return issuing.noFee(data)
 
+@app.route('/report/optionprofit',methods = ['POST', 'GET'])
+def report_optionprofit():
+    data = request.get_json()
+    return reports.optionprofit(data)
+
+@app.route('/report/profit',methods = ['POST', 'GET'])
+def report_profit():
+    data = request.get_json()
+    return reports.profit(data)
+
+
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)
     app.run(host='0.0.0.0', debug=True)

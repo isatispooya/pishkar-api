@@ -230,35 +230,25 @@ def CustomerRatingsIssuing(data):
             issuingLife = issuingLife.join(AssingIssuingLife)
             issuingLife = issuingLife[issuingLife['cunsoltant'] == data['consultant']]
             issuingLife = issuingLife.reset_index()
-
-
         standard = pd.DataFrame(pishkarDb['standardfee'].find({'username':username},{'_id':0,'field':1,'groupMain':1}))
         standard = standard.set_index('field')
         standard = standard.fillna(0)
-
         issuing = issuing[['رشته','کد رایانه صدور بیمه نامه','مورد بیمه','additional','comp','پرداخت کننده حق بیمه','شماره الحاقیه','مبلغ کل حق بیمه','تاريخ بيمه نامه يا الحاقيه']]
         issuing = issuing.drop_duplicates(subset=['رشته','کد رایانه صدور بیمه نامه','مورد بیمه','additional','additional','مبلغ کل حق بیمه'])
         issuing = issuing.fillna('')
         issuing['Field'] =  issuing['رشته'] + ' ('+issuing['مورد بیمه']+')'
         issuing['Field'] = [str(x).replace(' ()','') for x in issuing['Field']]
         issuing = issuing.set_index('Field').join(standard).reset_index()
-
         issuingLife = issuingLife.drop_duplicates(subset=['شماره بيمه نامه'])
         issuingLife['Field'] = 'زندگی'
         issuingLife['groupMain'] = 'زندگی'
         issuingLife['تعداد اقساط در سال'] = issuingLife['تعداد اقساط در سال'].astype(int)
         issuingLife['حق بیمه هر قسط \n(جمع عمر و پوششها)'] = issuingLife['حق بیمه هر قسط \n(جمع عمر و پوششها)'].astype(int)
         issuingLife['مبلغ کل حق بیمه'] = issuingLife['تعداد اقساط در سال'] * issuingLife['حق بیمه هر قسط \n(جمع عمر و پوششها)']
-
         issuingLife = issuingLife.rename(columns={'تاريخ شروع':'تاريخ بيمه نامه يا الحاقيه','نام بیمه گذار':'پرداخت کننده حق بیمه'})
         issuingLife = issuingLife.drop(columns=['تعداد اقساط در سال','حق بیمه هر قسط \n(جمع عمر و پوششها)','dateInt'])
-
         issuing = pd.concat([issuing,issuingLife])
         issuing = issuing.fillna('-')
-
-        print(issuing.isnull().sum())
-
-
         issuing['count'] = 1
         child = issuing[['پرداخت کننده حق بیمه','comp','groupMain','رشته','مبلغ کل حق بیمه','count']]
         child['پرداخت کننده حق بیمه'] = [splitCode(x) for x in child['پرداخت کننده حق بیمه']]
@@ -273,6 +263,74 @@ def CustomerRatingsIssuing(data):
         for i in range(len(issuing)):
             issuing[i]['_children'] = child[child['پرداخت کننده حق بیمه']==issuing[i]['code']].to_dict('records')
         return json.dumps({'replay':True, 'df':issuing})
+    else:
+        return ErrorCookie()
+    
+
+def profit(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        cost = {'_id':0,'period':True,'fullName':True}
+        for key, value in data['cost'].items():
+            keyNew = str(key).replace('بن خواربار','subsidy').replace('مسکن','homing').replace('عیدی','eydi').replace('حق اولاد','childern').replace('سایر مزایایی غیر نقدی','benefit').replace('مالیات','taxe').replace('حق بیمه پرسنل','insuranceWorker').replace('حق بیمه کارفرما','insuranceEmployer').replace('کارمزد اصلی','reward')
+            cost[keyNew] = value
+        df_pay = pd.DataFrame(pishkarDb['paymentPerson'].find({'username':username}))
+        for c in df_pay.columns:
+            if c in cost.keys():
+                if cost[c] == False:
+                    df_pay = df_pay.drop(columns=c)
+            else:
+                df_pay = df_pay.drop(columns=c)
+
+        for key, value in data['person'].items():
+            if value == False:
+                df_pay = df_pay[df_pay['fullName']!=key]
+
+
+
+        df_inc = pd.DataFrame(pishkarDb['Fees'].find({'username':username},{'_id':0,'رشته':1,
+            'مورد بیمه':1, 'کد رایانه صدور':1, 'كارمزد قابل پرداخت':1, 'کل مبلغ وصول شده': 1,
+            'UploadDate':1 ,'comp':1 , 'تاریخ صدور بیمه نامه':1,'شماره بيمه نامه':1}))
+        df_inc = df_inc.drop_duplicates(subset=['comp','UploadDate','کد رایانه صدور','شماره بيمه نامه','كارمزد قابل پرداخت'])
+        df_inc = df_inc[['رشته','كارمزد قابل پرداخت','UploadDate','comp']]
+        df_inc = df_inc.rename(columns={'UploadDate':'period'})
+
+        for key, value in data['comp'].items():
+            if value == False:
+                df_inc = df_inc[df_inc['comp']!=key]
+        df_pay = df_pay.groupby(by=['period']).sum(numeric_only=True)
+        df_inc = df_inc.groupby(by=['period']).sum(numeric_only=True)
+        df_pay['all'] = df_pay.sum(axis=1)
+        df_pay = df_pay[['all']]
+        df_sum = df_inc.join(df_pay).fillna(0).reset_index()
+        df_sum['monthInt'] = df_sum['period'].apply(timedate.PriodStrToInt)
+        df_sum = df_sum.sort_values(by=['monthInt'])
+        df_sum['profit'] = df_sum['كارمزد قابل پرداخت'] - df_sum['all']
+        df_sum = df_sum.to_dict('records')
+        return json.dumps({'replay':True, 'df':df_sum})
+    else:
+        return ErrorCookie()
+    
+
+def optionprofit(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        insurec = pd.DataFrame(pishkarDb['insurer'].find({'username':username},{'نام':1,'بیمه گر':1,'_id':0})).set_index('نام').to_dict(orient='dict')['بیمه گر']
+        insurec['کارآفرین'] = 'کارآفرین'
+        person = pishkarDb['paymentPerson'].find({'username':username},{'fullName':1})
+        person = list(set([x['fullName'] for x in person]))
+        person ={x:True for x in person}
+        comp = pishkarDb['Fees'].aggregate([{"$group": {"_id": "$comp"}},{"$match": {"_id": {"$ne": None}}},{"$project": {"_id": 0,"comp": "$_id"}}])
+        comp = [x['comp'] for x in comp]
+        comp = [insurec[x] for x in comp]
+        comp = {x:True for x in comp}
+        cost = ['بن خواربار','مسکن','عیدی','حق اولاد','سایر مزایایی غیر نقدی','مالیات','حق بیمه پرسنل','حق بیمه کارفرما','کارمزد اصلی']
+        cost = {x:True for x in cost}
+        return json.dumps({'replay':True, 'data':{'comp':comp,'person':person,'cost':cost}})
     else:
         return ErrorCookie()
     
