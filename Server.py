@@ -715,6 +715,10 @@ def report_profit():
     data = request.get_json()
     return reports.profit(data)
 
+@app.route('/report/lifestatus',methods = ['POST', 'GET'])
+def report_lifestatus():
+    data = request.get_json()
+    return reports.lifestatus(data)
 
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)

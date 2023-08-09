@@ -5,6 +5,7 @@ from Sing import cookie, ErrorCookie
 import numpy as np
 import timedate
 from customers import splitCode, splitName
+import random
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
 
@@ -272,7 +273,7 @@ def profit(data):
     user = json.loads(user)
     username = user['user']['phone']
     if user['replay']:
-        cost = {'_id':0,'period':True,'fullName':True}
+        cost = {'_id':0,'period':True,'fullName':True,'reward':True}
         for key, value in data['cost'].items():
             keyNew = str(key).replace('بن خواربار','subsidy').replace('مسکن','homing').replace('عیدی','eydi').replace('حق اولاد','childern').replace('سایر مزایایی غیر نقدی','benefit').replace('مالیات','taxe').replace('حق بیمه پرسنل','insuranceWorker').replace('حق بیمه کارفرما','insuranceEmployer').replace('کارمزد اصلی','reward')
             cost[keyNew] = value
@@ -287,29 +288,65 @@ def profit(data):
         for key, value in data['person'].items():
             if value == False:
                 df_pay = df_pay[df_pay['fullName']!=key]
-
-
-
         df_inc = pd.DataFrame(pishkarDb['Fees'].find({'username':username},{'_id':0,'رشته':1,
             'مورد بیمه':1, 'کد رایانه صدور':1, 'كارمزد قابل پرداخت':1, 'کل مبلغ وصول شده': 1,
             'UploadDate':1 ,'comp':1 , 'تاریخ صدور بیمه نامه':1,'شماره بيمه نامه':1}))
         df_inc = df_inc.drop_duplicates(subset=['comp','UploadDate','کد رایانه صدور','شماره بيمه نامه','كارمزد قابل پرداخت'])
         df_inc = df_inc[['رشته','كارمزد قابل پرداخت','UploadDate','comp']]
         df_inc = df_inc.rename(columns={'UploadDate':'period'})
-
         for key, value in data['comp'].items():
             if value == False:
                 df_inc = df_inc[df_inc['comp']!=key]
         df_pay = df_pay.groupby(by=['period']).sum(numeric_only=True)
         df_inc = df_inc.groupby(by=['period']).sum(numeric_only=True)
         df_pay['all'] = df_pay.sum(axis=1)
-        df_pay = df_pay[['all']]
-        df_sum = df_inc.join(df_pay).fillna(0).reset_index()
-        df_sum['monthInt'] = df_sum['period'].apply(timedate.PriodStrToInt)
-        df_sum = df_sum.sort_values(by=['monthInt'])
+        df_pay = df_pay[['all','reward']]
+        df_sum = df_inc.join(df_pay)
+        df_sum = df_sum.reset_index()
+        df_sum['period'] = df_sum['period'].apply(timedate.PriodStrToInt)
+        df_sum = df_sum.sort_values(by=['period'])
+        df_sum['rateAll'] = df_sum['all'] / df_sum['كارمزد قابل پرداخت']
+        df_sum['rateReward'] = df_sum['reward'] / df_sum['كارمزد قابل پرداخت']
+        df_sum['rateAll'] = df_sum['rateAll'].fillna(method='backfill').fillna(method='ffill') * df_sum['كارمزد قابل پرداخت']
+        df_sum['rateReward'] = df_sum['rateReward'].fillna(method='backfill').fillna(method='ffill') * df_sum['كارمزد قابل پرداخت']
+        df_sum['all'] = df_sum['all'].fillna(df_sum['rateAll'])
+        df_sum['reward'] = df_sum['reward'].fillna(df_sum['rateReward'])
+        df_sum['all'] = df_sum['all'].astype(int)
+        df_sum['reward'] = df_sum['reward'].astype(int)
+        df_sum = df_sum.drop(columns=['rateAll','rateReward'])
+        df_sum = df_sum.fillna(0)
+        df_sum = df_sum.reset_index().drop(columns='index')
+        df_sum = df_sum[df_sum.index>df_sum.index.max()-int(data['period'])]
         df_sum['profit'] = df_sum['كارمزد قابل پرداخت'] - df_sum['all']
+        df_sum['profitNoReward'] = df_sum['كارمزد قابل پرداخت'] - df_sum['all'] + df_sum['reward']
+        df_sum['CostFix'] =df_sum['all'] - df_sum['reward']
+
+        df_rate = df_sum.copy()
+        df_rate['CostToIncom'] = df_rate['all'] / df_rate['كارمزد قابل پرداخت']
+        df_rate['CostNoFeeToIncom'] = (df_rate['all']-df_rate['reward']) / df_rate['كارمزد قابل پرداخت']
+        df_rate['FeeToIncom'] = df_rate['reward'] / df_rate['كارمزد قابل پرداخت']
+        df_rate['FeeToCost'] = df_rate['reward'] / df_rate['all']
+        df_rate['ChangRateProfit'] = ((df_rate['كارمزد قابل پرداخت'] / df_rate['كارمزد قابل پرداخت'].shift(1))-1).fillna(0)
+        df_rate['ChangRateCost'] = ((df_rate['all'] / df_rate['all'].shift(1))-1).fillna(0)
+        df_rate['ChangRateFee'] = ((df_rate['reward'] / df_rate['reward'].shift(1))-1).fillna(0)
+        df_rate['ChangRateIncom'] = ((df_rate['كارمزد قابل پرداخت'] / df_rate['كارمزد قابل پرداخت'].shift(1))-1).fillna(0)
+        df_rateCulomns = ['period','CostToIncom','CostNoFeeToIncom','FeeToIncom','FeeToCost','ChangRateProfit','ChangRateCost','ChangRateFee','ChangRateIncom']
+        df_rate = df_rate[df_rateCulomns]
+        for c in df_rateCulomns:
+            if c != 'period':
+                df_rate[c] = df_rate[c]*10000
+                df_rate[c] = df_rate[c].astype(int)/100
+        datasets = []
+        for c in df_sum.columns:
+            if c != 'period':
+                name = str(c).replace('كارمزد قابل پرداخت','درامد').replace('all','هزینه').replace('reward','متغییر').replace('profitNoReward','سود بدون متغییر ').replace('profit','سود').replace('CostFix','هزینه ثابت')
+                Color = 'rgb('+ str(random.randint(90,255)) + ',' + str(random.randint(90,255))+ ',' + str(random.randint(90,255)) +')'
+                dic = {'label':name,'data':df_sum[c].to_list(),'borderColor': Color,'backgroundColor': Color}
+                datasets.append(dic)
+        chart = {'labels':df_sum['period'].to_list(),'datasets':datasets}
         df_sum = df_sum.to_dict('records')
-        return json.dumps({'replay':True, 'df':df_sum})
+        df_rate = df_rate.to_dict('records')
+        return json.dumps({'replay':True, 'df':df_sum,'dfRate':df_rate,'chart':chart})
     else:
         return ErrorCookie()
     
@@ -333,4 +370,14 @@ def optionprofit(data):
         return json.dumps({'replay':True, 'data':{'comp':comp,'person':person,'cost':cost}})
     else:
         return ErrorCookie()
-    
+
+def lifestatus(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        df = pd.DataFrame(pishkarDb['RevivalLife'].find({'username':username,'شماره بيمه نامه':data['num']},{'_id':0}))
+        df = df.to_dict('records')
+        return json.dumps({'replay':True, 'df':df})
+    else:
+        return ErrorCookie()
