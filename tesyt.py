@@ -7,13 +7,17 @@ from timedate import ColorRandom
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
 
+def are_all_characters_digits(input_string):
+    for char in input_string:
+        if not char.isdigit():
+            return False
+    return True
+    
 
-
-
-df = pd.DataFrame(pishkarDb['issuingLife'].find({'comp':'خاورمیانه'}))
-listDf = list(set(df['شماره بيمه نامه'].to_list()))
-
-for i in listDf:
-    pishkarDb['AssingIssuingLife'].update_one({'شماره بيمه نامه':int(i)},{'$set':{'شماره بيمه نامه':i}})
-    pishkarDb['assing'].update_one({'شماره بيمه نامه':int(i)},{'$set':{'شماره بيمه نامه':i}})
-    print(i)
+df = pd.DataFrame(pishkarDb['customers'].find({}))
+df['s'] = df['تلفن همراه'].apply(are_all_characters_digits)
+df = df[df['s']==False]
+for i in df.index:
+    id = df['_id'][i]
+    pishkarDb['customers'].update_many({'_id':id},{'$set':{'تلفن همراه':''}})
+    print(id)
