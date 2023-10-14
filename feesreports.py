@@ -32,6 +32,13 @@ def uploadfile(date,cookier,file,comp):
     else:
         return ErrorCookie()
 
+def dupByComp(group):
+    try:
+        if group['comp'][group.index.min()] not in ['خاورمیانه','ایران']:
+            group = group.drop_duplicates()
+    except:
+        pass
+    return group
 
 def getfeesuploads(data):
     user = cookie(data)
@@ -41,8 +48,7 @@ def getfeesuploads(data):
         df = pd.DataFrame(pishkarDb['Fees'].find({'username':username}))
         if len(df)>0:
             df = df[['comp','UploadDate','کد رایانه صدور','شماره بيمه نامه','كارمزد قابل پرداخت']]
-            if df['comp'][df.index.min()] in ['خاور میانه','ایران'] :
-                df = df.drop_duplicates()
+            df = df.groupby('comp').apply(dupByComp).drop(columns='comp').reset_index()
             df = df.groupby(by=['comp','UploadDate']).sum(numeric_only=True).reset_index()
             df = df[['comp','UploadDate','كارمزد قابل پرداخت']]
             insurec = pd.DataFrame(pishkarDb['insurer'].find({'username':username},{'نام':1,'بیمه گر':1,'_id':0}))

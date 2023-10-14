@@ -305,6 +305,7 @@ def getissuingmanual(data):
             except:
                 df['مدت زمان'][i] = 0
         df['_id'] = [str(x) for x in df['_id']]
+        df['longTime'] = df['مدت زمان']>364
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
