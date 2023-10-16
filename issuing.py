@@ -229,6 +229,7 @@ def getcunsoltant(data):
                 cl_consultant = pd.DataFrame(pishkarDb['cunsoltant'].find({'username':username}))
                 df['cunsoltantName'] = [NCtName(cl_consultant,x) for x in df['cunsoltant']]
 
+
         df = df.fillna('')
         df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp'])
         df = df.to_dict(orient='records')
