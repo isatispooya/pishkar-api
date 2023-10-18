@@ -8,7 +8,8 @@ from assing import NCtName
 import timedate
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
-
+from datetime import datetime
+import jdatetime
 
 
 
@@ -288,6 +289,22 @@ def assingcunsoltantLife(data):
         return json.dumps({'replay':True})
     else:
         return ErrorCookie()
+    
+
+
+def is_past_date(strdate):
+    # print(  strdate, type(strdate))
+    # print()
+    try:
+        persian_date_list = strdate.split('/')
+        year, month, day = map(int, persian_date_list)
+        gregorian_date =  jdatetime.date(year, month, day).togregorian()
+        gregorian_datetime = datetime(gregorian_date.year, gregorian_date.month, gregorian_date.day)
+        today = datetime.now()
+
+        return gregorian_datetime <= today
+    except:
+        return False
 
 def getissuingmanual(data):
     user = cookie(data)
@@ -306,6 +323,8 @@ def getissuingmanual(data):
                 df['مدت زمان'][i] = 0
         df['_id'] = [str(x) for x in df['_id']]
         df['longTime'] = df['مدت زمان']>364
+        df['expier'] = df['تاريخ پایان'].apply(is_past_date )
+        print(df)
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
