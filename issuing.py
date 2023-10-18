@@ -293,8 +293,6 @@ def assingcunsoltantLife(data):
 
 
 def is_past_date(strdate):
-    # print(  strdate, type(strdate))
-    # print()
     try:
         persian_date_list = strdate.split('/')
         year, month, day = map(int, persian_date_list)
@@ -302,7 +300,7 @@ def is_past_date(strdate):
         gregorian_datetime = datetime(gregorian_date.year, gregorian_date.month, gregorian_date.day)
         today = datetime.now()
 
-        return gregorian_datetime <= today
+        return gregorian_datetime >= today
     except:
         return False
 
@@ -322,8 +320,7 @@ def getissuingmanual(data):
             except:
                 df['مدت زمان'][i] = 0
         df['_id'] = [str(x) for x in df['_id']]
-        df['longTime'] = df['مدت زمان']>364 +  df['تاريخ پایان'].apply(is_past_date )
-        print( df['longTime'] )
+        df['longTime'] = df['مدت زمان']>365 +  df['تاريخ پایان'].apply(is_past_date )
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
