@@ -11,9 +11,6 @@ pishkarDb = client['pishkar']
 from datetime import datetime
 import jdatetime
 
-
-
-
 def addfileNoneAdditional(cookier,file,comp):
     user = cookie(cookier)
     user = json.loads(user)
@@ -229,6 +226,7 @@ def getcunsoltant(data):
             else:
                 cl_consultant = pd.DataFrame(pishkarDb['cunsoltant'].find({'username':username}))
                 df['cunsoltantName'] = [NCtName(cl_consultant,x) for x in df['cunsoltant']]
+
 
         df = df.fillna('')
         df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp'])
