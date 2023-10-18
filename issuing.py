@@ -10,9 +10,6 @@ client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
 
 
-
-
-
 def addfileNoneAdditional(cookier,file,comp):
     user = cookie(cookier)
     user = json.loads(user)
