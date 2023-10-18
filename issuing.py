@@ -11,6 +11,9 @@ pishkarDb = client['pishkar']
 from datetime import datetime
 import jdatetime
 
+
+
+
 def addfileNoneAdditional(cookier,file,comp):
     user = cookie(cookier)
     user = json.loads(user)
@@ -227,7 +230,6 @@ def getcunsoltant(data):
                 cl_consultant = pd.DataFrame(pishkarDb['cunsoltant'].find({'username':username}))
                 df['cunsoltantName'] = [NCtName(cl_consultant,x) for x in df['cunsoltant']]
 
-
         df = df.fillna('')
         df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp'])
         df = df.to_dict(orient='records')
@@ -320,9 +322,8 @@ def getissuingmanual(data):
             except:
                 df['مدت زمان'][i] = 0
         df['_id'] = [str(x) for x in df['_id']]
-        df['longTime'] = df['مدت زمان']>364
-        df['expier'] = df['تاريخ پایان'].apply(is_past_date )
-        print(df)
+        df['longTime'] = df['مدت زمان']>364 +  df['تاريخ پایان'].apply(is_past_date )
+        print( df['longTime'] )
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
