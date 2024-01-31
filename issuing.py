@@ -6,10 +6,9 @@ import pandas as pd
 from Sing import cookie, ErrorCookie
 from assing import NCtName
 import timedate
+import datetime
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
-from datetime import datetime
-import jdatetime
 
 
 
@@ -294,13 +293,10 @@ def assingcunsoltantLife(data):
 
 def is_past_date(strdate):
     try:
-        persian_date_list = strdate.split('/')
-        year, month, day = map(int, persian_date_list)
-        gregorian_date =  jdatetime.date(year, month, day).togregorian()
-        gregorian_datetime = datetime(gregorian_date.year, gregorian_date.month, gregorian_date.day)
-        today = datetime.now()
+        date = timedate.PersianToGregorian(strdate)
+        today = datetime.datetime.now().date()
 
-        return gregorian_datetime >= today
+        return date >= today
     except:
         return False
 
@@ -320,7 +316,9 @@ def getissuingmanual(data):
             except:
                 df['مدت زمان'][i] = 0
         df['_id'] = [str(x) for x in df['_id']]
-        df['longTime'] = df['مدت زمان']>365 +  df['تاريخ پایان'].apply(is_past_date )
+        df['longTime'] = df['مدت زمان']>364
+        df['expier'] = df['تاريخ پایان'].apply(is_past_date)
+        df['longTime'] = df['longTime'] + df['expier']
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
@@ -483,14 +481,13 @@ def sales(data):
         issuingLife = issuingLife[['شماره بيمه نامه','نام بیمه گذار','Field','comp','مبلغ کل حق بیمه','count', 'countAdd', 'countdiff']]
 
         issuing['Date'] = [timedate.PersianToTimetump(x) for x in issuing['تاریخ عملیات']]
-        dd = issuing[issuing['comp']=='ما']
-        dd = dd[dd['شماره بيمه نامه']==30].to_dict('records')[-1]['Date']
 
         issuing = issuing[issuing['Date']>=int(data['Date']['from'])]
         issuing = issuing[issuing['Date']<=int(data['Date']['to'])]
         #issuing = issuing[issuing['Date']>=int(data['Date']['from'])-3600001]
         #issuing = issuing[issuing['Date']<=int(data['Date']['to']+3600001)]
         issuing = issuing.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','شماره بيمه نامه','comp','additional','مبلغ کل حق بیمه','تاریخ عملیات'])
+
         issuing['count'] = 1
         issuing['countAdd'] = issuing['additional']=='اضافی'
         issuing['countdiff'] = issuing['additional']=='برگشتی'
@@ -505,15 +502,18 @@ def sales(data):
         issuing.columns =['شماره بيمه نامه', 'نام بیمه گذار', 'Field', 'comp','مبلغ کل حق بیمه', 'count', 'countAdd', 'countdiff']
 
         issuing = pd.concat([issuing,issuingLife])
-        issuing['tax'] = [('درمان' in x or 'زندگی' in x) for x in issuing['Field']]
+        issuing['tax'] = [('درمان' in x or 'زندگی' in x or 'عمر گروهی' in x) for x in issuing['Field']]
         issuing['tax'] = issuing['tax'].replace(False,'1.09').replace(True,'1')
         issuing['tax'] = [float(x) for x in issuing['tax']]
         issuing['مبلغ کل حق بیمه'] =  issuing['مبلغ کل حق بیمه'] / issuing['tax']
         issuing['مبلغ کل حق بیمه'] = [int(x) for x in issuing['مبلغ کل حق بیمه']]
+
         children = issuing.copy()
         df = issuing.groupby(by=['Field','comp']).sum(numeric_only=True)
         df = df.reset_index()
+        stndrd = stndrd.drop_duplicates(subset=['field'])
         df = df.set_index(['Field']).join(stndrd.set_index(['field']),how='left').reset_index()
+
         df['groupMain'] = df['groupMain'].fillna('دیگر')
         df['groupMain'] = df['groupMain'].replace('دیگر','عمر و سرمایه گذاری').replace('زندگی','عمر و سرمایه گذاری')
         df.columns = ['Field', 'comp', 'مبلغ کل حق بیمه', 'count', 'countAdd', 'countdiff','tax','groupMain']
@@ -748,10 +748,11 @@ def noFee(data):
             life = life[life['dateInt']>14010631]
             life = life.drop(columns=['dateInt'])
 
-        noLife = pd.DataFrame(pishkarDb['issuing'].find({'username':username},{'_id':0,'شماره بيمه نامه':1,'رشته':1,'پرداخت کننده حق بیمه':1,'مورد بیمه':1,'کد رایانه صدور بیمه نامه':1,'تاریخ عملیات':1,'comp':1}))
+        noLife = pd.DataFrame(pishkarDb['issuing'].find({'username':username,'additional':'اصلی'},{'_id':0,'شماره بيمه نامه':1,'رشته':1,'پرداخت کننده حق بیمه':1,'مورد بیمه':1,'کد رایانه صدور بیمه نامه':1,'تاریخ عملیات':1,'comp':1}))
         noLife = noLife.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp'])
         noLife['کد رایانه صدور بیمه نامه'] = [str(int(x)) for x in noLife['کد رایانه صدور بیمه نامه']]
         noLife = noLife.rename(columns={'کد رایانه صدور بیمه نامه':'کد رایانه صدور','پرداخت کننده حق بیمه':'نام بیمه گذار','تاریخ عملیات':'تاريخ صدور'})
+        noLife = noLife[noLife['کد رایانه صدور']!="8962580"]
         noLife = noLife.set_index(['کد رایانه صدور','comp']).join(fee.set_index(['کد رایانه صدور','comp'])[['UploadDate']],how='left')
         noLife = noLife.reset_index().drop_duplicates(subset=['کد رایانه صدور','comp'])
         noLife['UploadDate'] = noLife['UploadDate'].isnull()

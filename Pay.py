@@ -60,7 +60,7 @@ def get(data):
                         fixPay['insuranceWorker'] = round((fixPay['base']+fixPay['subsidy']+fixPay['homing'])*(int(c['insureWorker'])/100))
                         fixPay['insuranceEmployer'] = round((fixPay['base']+fixPay['subsidy']+fixPay['homing'])*(int(c['insureEmployer'])/100))
                         fixPay['paybeforTax'] = fixPay['base'] + fixPay['subsidy'] + fixPay['homing'] + fixPay['childern'] + fixPay['eydi']
-                        inTax = fixPay['paybeforTax'] - fixPay['homing'] - fixPay['insuranceWorker']
+                        inTax = fixPay['paybeforTax'] - fixPay['homing'] - fixPay['insuranceWorker'] - fixPay['eydi']
                         fixPay['inTax'] = inTax
                         taxDf = pd.DataFrame.from_dict({'level':[taxDf['incomeLevel1'],taxDf['incomeLevel2'],taxDf['incomeLevel3'],taxDf['incomeLevel4'],taxDf['incomeLevel5'],taxDf['incomeLevel6'],taxDf['incomeLevel7']],'rate':[taxDf['taxeLevel1'],taxDf['taxeLevel2'],taxDf['taxeLevel3'],taxDf['taxeLevel4'],taxDf['taxeLevel5'],taxDf['taxeLevel6'],taxDf['taxeLevel7']]})
                         taxDf = taxDf.replace('',0)
@@ -110,11 +110,9 @@ def get(data):
                             for vb in valueBrancheList:
                                 fixPay[vb['title']] = vb['value']
                     df.append(fixPay)
-                    
             df = pd.DataFrame(df)
             df = df.fillna(0)
             df['SubReward'] = 0
-
             for i in df.index:
                 print('-'*50)
                 print(df['nationalCode'][i])

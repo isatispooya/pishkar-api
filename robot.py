@@ -16,7 +16,7 @@ def getInsByUsernameAndEnding(username,prevDay):
     endDate = today + datetime.timedelta(days=int(prevDay))
     endDate = JalaliDate.to_jalali(endDate.year,endDate.month,endDate.day)
     endDate = str(endDate).replace('-','/')
-    df = pd.DataFrame(pishkarDb['issuing'].find({'username':username,'تاريخ پایان':endDate},{'_id':0,'username':0}))
+    df = pd.DataFrame(pishkarDb['issuing'].find({'username':username,'تاريخ پایان':endDate,'additional':'اصلی'},{'_id':0,'username':0}))
     df = df.drop_duplicates(subset=['comp','کد رایانه صدور بیمه نامه'])
     return df
 

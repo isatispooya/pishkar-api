@@ -381,3 +381,41 @@ def lifestatus(data):
         return json.dumps({'replay':True, 'df':df})
     else:
         return ErrorCookie()
+    
+
+
+def report_received(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        frm = timedate.timStumpTojalali(data['date']['from'])
+        to = timedate.timStumpTojalali(data['date']['to'])
+        frmInt = int(frm.replace('/',''))
+        toInt = int(to.replace('/',''))
+
+
+        fee = pd.DataFrame(pishkarDb['Fees'].find({'username':username},{'_id':0,'UploadDate':1,'تا تاریخ محاسبه':1,'رشته':1,'مورد بیمه':1,'بيمه گذار':1,'شماره بيمه نامه':1,'تاریخ صدور بیمه نامه':1,'كارمزد پرداخت شده در محاسبه هاي قبل':1,'کل کارمزد محاسبه شده':1,'مبلغ كل':1,'comp':1}))
+        fee['date'] = fee['تاریخ صدور بیمه نامه'].apply(timedate.dateSlashToInt)
+        fee = fee[fee['date']<=toInt]
+        fee = fee[fee['date']>=frmInt]
+        fee = fee.drop(columns=['تاریخ صدور بیمه نامه'])
+        insurec = pd.DataFrame(pishkarDb['insurer'].find({'username':username},{'نام':1,'بیمه گر':1,'_id':0}))
+        insurec = insurec.set_index('نام').to_dict(orient='dict')['بیمه گر']
+        fee['comp'] = [insurec[x] for x in fee['comp']]
+        fee['UploadDate'] = fee['UploadDate'].apply(timedate.PriodStrToInt)
+        fee['UploadDate'] = [int(str(x)+'00')<=toInt for x in fee['UploadDate']]
+        fee = fee.sort_values(['تا تاریخ محاسبه','UploadDate'])
+        fee = fee.drop_duplicates(keep='first',subset='شماره بيمه نامه')
+        fee = fee.drop(columns=['تا تاریخ محاسبه'])
+        fee['مورد بیمه'] = fee['مورد بیمه'].fillna('')
+        fee = fee.fillna(0)
+        fee['مبلغ كل'] = fee['مبلغ كل'] * fee['UploadDate']
+        fee['received'] = fee['كارمزد پرداخت شده در محاسبه هاي قبل'] + fee['مبلغ كل']
+        fee['received'] = fee['received'].apply(int)
+        fee['balance'] = fee['کل کارمزد محاسبه شده'] - fee['received']
+        fee = fee.drop(columns=['كارمزد پرداخت شده در محاسبه هاي قبل','مبلغ كل'])
+        fee = fee.to_dict('records')
+        return{'reply':True, 'df':fee}
+    else:
+        return ErrorCookie()

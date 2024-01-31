@@ -51,6 +51,15 @@ def timStumpTojalali(timeStump):
     kk = kk.replace('-','/')
     return kk
 
+
+def dateSlashToInt(date):
+    try:
+        date = int(date.replace('/',''))
+    except:
+        date = 0
+    return date
+
+
 def dateToPriod (date):
     intDate = str(date).split('/')
     year = intDate[0]

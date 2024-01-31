@@ -453,7 +453,8 @@ def liferevivalyear(data):
                     basicAdden['startDateInt'] = [timedate.dateToInt(x) for x in basicAdden['تاريخ شروع']]
                     firstAdden = basicAdden[basicAdden['startDateInt']==basicAdden['startDateInt'].min()].to_dict('records')[0]
                     basic['تاريخ  انقضاء'] = firstAdden['تاريخ شروع']
-                    df = df.append(basic,ignore_index=True)
+                    basic = pd.DataFrame([basic])
+                    df = pd.concat([df,basic])
                     liststart = basicAdden['startDateInt'].to_list()
                     basicAdden = basicAdden.set_index(['startDateInt']).sort_index()
                     for j in basicAdden.index:
@@ -466,7 +467,7 @@ def liferevivalyear(data):
                         basic['تعداد اقساط در سال'] = int(row['تعداد اقساط در سال'])
                         basic['روش پرداخت'] = methodPay[str(row['تعداد اقساط در سال'])]
                         basic['حق بیمه هر قسط \n(جمع عمر و پوششها)'] = int(str(row['حق بیمه هر قسط \n(جمع عمر و پوششها)']).replace(',','')) * (100/(100+int(row['ضریب رشد سالانه حق بیمه'])))
-                        df = df.append(basic,ignore_index=True)
+                        df = pd.concat([df,basic])
             df = df.drop(columns='adden')
 
         df = df.set_index('شماره بيمه نامه').join(consoltant,how='left').reset_index()
