@@ -419,3 +419,152 @@ def report_received(data):
         return{'reply':True, 'df':fee}
     else:
         return ErrorCookie()
+    
+
+def report_feeperfild(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        paymentPerson = pd.DataFrame(
+            pishkarDb['paymentPerson'].find(
+                {
+                    'period':data['datePeriod']['Show'],
+                    'username':username
+                },
+                {
+                    '_id':0,
+                    'nationalCode':1,
+                    'fullName':1,
+                    'reward':1,
+                    'SubReward':1,
+                    
+                }
+            )
+        )
+        if len(paymentPerson) == 0:
+            return json.dumps({'reply':False, 'msg':'حقوق و دستمز برای دوره انتخابی محاسبه نشده است'})
+            
+        paymentPerson['all'] = paymentPerson['reward'] + paymentPerson['SubReward']
+        paymentPerson = paymentPerson[paymentPerson['all']>0]
+        NumPerson = list(set(paymentPerson['nationalCode'].to_list()))
+        paymentPerson = paymentPerson.set_index('nationalCode')
+        
+        
+        
+        Fees = pd.DataFrame(
+            pishkarDb['Fees'].find(
+                {
+                    'username':username,
+                    'UploadDate':data['datePeriod']['Show']
+                },
+                {
+                    '_id':0,
+                    'مبلغ كل':1,
+                    'رشته':1,
+                    'مورد بیمه':1,
+                    'شماره بيمه نامه':1
+                }
+                
+            )
+        )
+        
+        NumFee = list(set(Fees['شماره بيمه نامه'].to_list()))
+        Fees = Fees.set_index('شماره بيمه نامه')
+        
+        assing = pd.DataFrame(
+            pishkarDb['assing'].find()
+        )
+        
+        assing = assing[assing['شماره بيمه نامه'].isin(NumFee)]
+        assing = assing[assing['consultant'].isin(NumPerson)]
+        df = assing[['شماره بيمه نامه','consultant']].set_index('شماره بيمه نامه')
+        df = df.join(Fees).reset_index()
+        df['مورد بیمه'] = df['مورد بیمه'].fillna('')
+        df['Field'] =  df['رشته'] + ' ('+df['مورد بیمه']+')'
+        df['Field'] = [str(x).replace(' ()','') for x in df['Field']]
+        df['rate'] = 0
+        
+        cunsoltant = pd.DataFrame(
+            pishkarDb['cunsoltant'].find(
+                {
+                    'username':username,
+                },
+                {
+                    '_id':0,
+                    'username':0,
+                    'gender':0,
+                    'phone':0,
+                    'code':0,
+                    'salary':0,
+                    'childern':0,
+                    'freetaxe':0,
+                    'freetaxe':0,
+                    'insureWorker':0,
+                    'insureEmployer':0,
+                    'salaryGroup':0,
+                    'ConsultantSelected':0
+                    
+                    
+                }
+            )
+        )
+        cunsoltant = cunsoltant[cunsoltant['nationalCode'].isin(NumPerson)]
+        
+        dff = []
+        for i in NumPerson:
+            cunsoltant_i = cunsoltant[cunsoltant['nationalCode']==i]
+            if len(cunsoltant_i)>0:
+                cunsoltant_i = cunsoltant_i.to_dict('records')[0]
+                df_i = df[df['consultant']==i]
+                if len(df_i)>0:
+                    df_i['rate'] = [int(cunsoltant_i[x])/100 for x in df_i['Field'] if x in cunsoltant_i.keys()]
+                    df_i['comission'] = df_i['rate'].fillna(0) * df_i['مبلغ كل'].fillna(0)
+                    dff.append(df_i)
+        
+        df = pd.concat(dff)
+        df = df[df['comission']>0]
+        
+        standardfee = pd.DataFrame(
+            pishkarDb['standardfee'].find(
+                {
+                    'username':username,
+                },
+                {
+                    '_id':0,
+                    'field':1,
+                    'groupMain':1
+                }
+            )
+        )
+        standardfee = standardfee.rename(columns={'field':'Field'}).set_index('Field')
+        df = df.set_index('Field')
+        df = df.join(standardfee).reset_index()
+        df = df[['consultant','comission','groupMain']]
+        df = df.groupby(by=['consultant','groupMain']).sum().reset_index()
+        dfSum = df.groupby(by='consultant').sum(numeric_only=True).reset_index()
+        dfSum['groupMain'] = 'sum'
+        df = pd.concat([df,dfSum])
+        
+        df = pd.pivot(df, values='comission',index='consultant',columns='groupMain').reset_index()
+        df = df.fillna(0)
+        df['other'] = df['sum']
+        colum = ['consultant','other','sum','بیمه حوادث شخصی و درمان','بیمه زندگی','بیمه مسئولیت','بیمه وسائط نقلیه موتوری']
+        
+        for i in df:
+            if i not in colum:
+                df = df.drop(columns=i)
+
+        for i in df:
+            if i not in ['consultant']:
+                df[i] = df[i].apply(int)
+            if i not in ['consultant','other','sum']:
+                df['other'] = df['other'] - df[i]
+                
+        cunsoltant = cunsoltant[['fristName','lastName','nationalCode']].set_index('nationalCode')
+        df = df.set_index('consultant').join(cunsoltant).reset_index()
+        df = df.to_dict('records')
+
+        return json.dumps({'reply':True, 'df':df})
+    else:
+        return ErrorCookie()

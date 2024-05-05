@@ -725,6 +725,11 @@ def report_received():
     data = request.get_json()
     return reports.report_received(data)
 
+@app.route('/report/feeperfild',methods = ['POST', 'GET'])
+def report_feeperfild():
+    data = request.get_json()
+    return reports.report_feeperfild(data)
+
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)
     app.run(host='0.0.0.0', debug=True)
