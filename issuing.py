@@ -211,9 +211,7 @@ def getcunsoltant(data):
         dfAssing = pd.DataFrame(pishkarDb['AssingIssuing'].find({'username':username},{'_id':0,'username':0}))
         if len(dfIssuing)==0:
             return json.dumps({'replay':False, 'msg':'هیچ صدوری ثبت نشده است'})
-
-        df = dfIssuing.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp'])
-
+        df = dfIssuing.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp','شماره الحاقیه'])
         if len(dfAssing) == 0:
             df['cunsoltant'] = ''
         else:
@@ -503,7 +501,7 @@ def sales(data):
 
         issuing = pd.concat([issuing,issuingLife])
         issuing['tax'] = [('درمان' in x or 'زندگی' in x or 'عمر گروهی' in x) for x in issuing['Field']]
-        issuing['tax'] = issuing['tax'].replace(False,'1.09').replace(True,'1')
+        issuing['tax'] = issuing['tax'].replace(False,'1.1').replace(True,'1')
         issuing['tax'] = [float(x) for x in issuing['tax']]
         issuing['مبلغ کل حق بیمه'] =  issuing['مبلغ کل حق بیمه'] / issuing['tax']
         issuing['مبلغ کل حق بیمه'] = [int(x) for x in issuing['مبلغ کل حق بیمه']]
