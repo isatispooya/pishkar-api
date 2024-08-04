@@ -730,6 +730,16 @@ def report_feeperfild():
     data = request.get_json()
     return reports.report_feeperfild(data)
 
+@app.route('/report/docaccounting',methods = ['POST', 'GET'])
+def report_docaccounting():
+    data = request.get_json()
+    return reports.report_docaccounting(data)
+
+@app.route('/coustomer/balance',methods = ['POST', 'GET'])
+def coustomer_balance():
+    data = request.get_json()
+    return reports.coustomer_balance(data)
+
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)
     app.run(host='0.0.0.0', debug=True)

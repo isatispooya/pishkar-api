@@ -26,12 +26,15 @@ def getfees(data):
     user = json.loads(user)
     username = user['user']['phone']
     if user['replay']:
-        feild = pd.DataFrame(pishkarDb['Fees'].find({'username':username}))[['رشته','مورد بیمه']]
+        feild = pd.DataFrame(pishkarDb['Fees'].find({'username':username}))
+        feild = feild[['رشته','مورد بیمه']]
         feild = feild.drop_duplicates().reset_index().drop(columns=['index']).fillna('')
+        feild = feild[feild['رشته']!='']
         feild['feild'] = feild['رشته']+' ('+feild['مورد بیمه']+')'
         feild = list(feild['feild'])
         feild = [str(x).replace(' ()','') for x in feild]
         consultant = pd.DataFrame(pishkarDb['cunsoltant'].find({'username':username,'nationalCode':data['nationalCode']},{'_id':0,'username':0}))
+        
         for f in feild:
             if f not in consultant.columns:
                 consultant[f] = 0

@@ -6,7 +6,15 @@ import numpy as np
 import timedate
 from customers import splitCode, splitName
 import random
+import datetime
+from SystemMassage import splitCode
+import hashlib
+from cryptography.fernet import Fernet
+import setting
+import pyodbc
+
 client = pymongo.MongoClient()
+
 pishkarDb = client['pishkar']
 
 def comparisom(data):
@@ -565,6 +573,227 @@ def report_feeperfild(data):
         df = df.set_index('consultant').join(cunsoltant).reset_index()
         df = df.to_dict('records')
 
+        return json.dumps({'reply':True, 'df':df})
+    else:
+        return ErrorCookie()
+    
+
+def groupingDocAccounting(df):
+
+    dff= df[['بدهی باقی مانده','تاریخ سررسید']]
+    dff = dff.rename(columns={"بدهی باقی مانده":'amount','تاریخ سررسید':'dadeline'})
+    dff = dff.set_index('dadeline')
+    dff = dff.to_dict()['amount']
+    df = df[df.index==df.index.max()]
+    df['latin'] = [dff for x in df.index]
+
+
+    df['additional'] = df['additional'].apply(str)
+    df['شماره بيمه نامه'] = df['شماره بيمه نامه'].apply(str)
+    df['پرداخت کننده حق بیمه'] = df['پرداخت کننده حق بیمه'].apply(str)
+    df['کد ملي بيمه گذار'] = df['کد ملي بيمه گذار'].apply(str)
+    df = df.fillna('')
+
+    df['discription'] = 'بابت بیمه نامه آقای ' + df['پرداخت کننده حق بیمه'] + ' کدملی ' + df['کد ملي بيمه گذار'] + ' رشته ' + df['رشته'] +' '+ df['مورد بیمه'] + ' به شماره ' + df['شماره بيمه نامه'] + ' الحاقیه ' + df['additional'] + ' بیمه گر ' + df['comp']
+    df = df.rename(columns={'مبلغ کل حق بیمه':'bede'})
+    df['code'] = '99999'
+    df = df[['code','discription','latin','bede']]
+    df = pd.concat([df,df]).reset_index().drop(columns='index')
+    df['bestan'] = df['bede']
+    df['bestan'][df.index.min()] = 0
+    df['bede'][df.index.max()] = 0
+    return df
+
+
+# رمزنگاری
+def dict_to_json_string(dictionary):
+    return json.dumps(dictionary, sort_keys=True)
+
+def encrypt(dictionary):
+    with open('secret.key', 'rb') as key_file:
+        key = key_file.read()
+    cipher = Fernet(key)
+    return cipher.encrypt(dict_to_json_string(dictionary).encode()).decode()
+
+#رمزگشایی
+def json_string_to_dict(json_string):
+    return json.loads(json_string)
+
+def decrypt(encrypted_string):
+    try:
+        with open('secret.key', 'rb') as key_file:
+            key = key_file.read()
+            
+        cipher = Fernet(key)
+        return json_string_to_dict(cipher.decrypt(encrypted_string.encode()).decode())
+    except:
+        return {}
+
+
+def report_docaccounting(data):
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        dt = timedate.timStumpTojalali(data['date'])
+        df = pd.DataFrame(pishkarDb['issuing'].find({'username':username,'تاریخ عملیات':dt},{'_id':0,'کد رایانه صدور بیمه نامه':1,'رشته':1,'مورد بیمه':1,'پرداخت کننده حق بیمه':1,'شماره بيمه نامه':1,'تاريخ بيمه نامه يا الحاقيه':1,'تاریخ سررسید':1,'مبلغ کل حق بیمه':1,'بدهی باقی مانده':1,'comp':1,'additional':1}))
+        if len(df) == 0:
+            return json.dumps({'reply':False, 'msg':'در این تاریخ هیچ بیمه نام ای صادر نشده است'})
+            
+        df['code'] = df['پرداخت کننده حق بیمه'].apply(splitCode)
+
+        df = df.set_index(['code','comp'])
+        df_nc = pd.DataFrame(pishkarDb['customers'].find({},{'_id':0,'code':1,'کد ملي بيمه گذار':1,'comp':1})).set_index(['code','comp'])
+        df = df.join(df_nc,how='left').reset_index()
+        null_nc = df['کد ملي بيمه گذار'].isnull().sum()
+        if null_nc>0:
+            df_null = df.fillna(0)
+            df_null = df_null.drop_duplicates(subset='پرداخت کننده حق بیمه')
+            df_null = df_null[df_null['کد ملي بيمه گذار']==0][['پرداخت کننده حق بیمه','comp']].to_dict('records')
+            txt = 'مشخصات زیر در قسمت مشتریان یافت نشد:\n'
+            for i in df_null:
+                txt = txt + i['پرداخت کننده حق بیمه'] + ' در شرکت '+i['comp']+'\n'
+            return json.dumps({'reply':False, 'msg':txt})
+        df['کد رایانه صدور بیمه نامه'] = df['کد رایانه صدور بیمه نامه'].apply(str)
+        df['gb'] = df['code']+df['additional']+df['comp']+df['کد رایانه صدور بیمه نامه']
+        
+        df = df.groupby(by=['gb']).apply(groupingDocAccounting)
+        df = df.reset_index()
+        df['latin'] = df['latin'].apply(encrypt)
+        df = df[['code','discription','latin','bede','bestan']]
+        
+
+        df = df.to_dict('records')
+        return json.dumps({'reply':True, 'df':df})
+    else:
+        return ErrorCookie()
+    
+
+def CulcBalanceAdjust(dic):
+    if len(dic)>0:
+        adjust = 0
+        for key in dic:
+            date = timedate.dateSlashToInt(key)
+            toDay = timedate.dateSlashToInt(str(timedate.toDay()).replace('-','/'))
+            if date>=toDay:
+                adjust = adjust + int(dic[key])
+        return adjust
+    return 0
+
+
+def group110(code,code2):
+    code = str(code).split('-')
+    
+    try:
+        part1 = code[0]
+        part2 = code[1]
+
+        return (part1 == '110') and (part2 == code2)
+    except:
+        return False
+
+def negetiveToZiro(neg):
+    if neg>0:
+        return neg
+    else:
+        return 0
+    
+def sumGroup(df):
+    Bede = df['Bede'].sum()
+    Best = df['Best'].sum()
+    LtnComm = df['LtnComm'].sum()
+    _children = []
+    for x in df['_children'].to_list():
+        if len(x)>0:
+            dfff = pd.DataFrame([{'date': date, 'LtnComm': value} for date, value in x.items()])
+            _children.append(dfff)
+    if len(_children)>0:
+        _children = pd.concat(_children)
+        _children = _children[_children['LtnComm']>0]
+        _children =_children.groupby('date').sum().reset_index()
+        _children = _children.to_dict('records')
+    dff = pd.DataFrame([{'Bede':Bede,'Best':Best,'LtnComm':LtnComm,'_children':_children}])
+    return dff
+
+def removePassed(passed):
+    dic = {}
+    if len(passed)>0:
+        for key in passed:
+            date = timedate.dateSlashToInt(key)
+            toDay = timedate.dateSlashToInt(str(timedate.toDay()).replace('-','/'))
+            if date>=toDay:
+                dic.update({key:passed[key]})
+        return dic
+    return dic
+
+def coustomer_balance(data):
+    code = data['code']
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        conn_str_db = f'DRIVER={{SQL Server}};SERVER={setting.ip_sql_server},{setting.port_sql_server};DATABASE={setting.database};UID={setting.username_sql_server};PWD={setting.password_sql_server}'
+        conn = pyodbc.connect(conn_str_db)
+        query = f"SELECT * FROM DOCB"
+        df = pd.read_sql(query, conn)
+        df['110'] = [group110(x,code) for x in df['Acc_Code']]
+        df = df[df['110']==True]        
+        df = df[['Acc_Code','Bede','Best','LtnComm']]
+        df = df.fillna('')
+        df['_children'] = df['LtnComm'].apply(decrypt)
+        df['_children'] = df['_children'].apply(removePassed)
+        df['LtnComm'] = df['_children'].apply(CulcBalanceAdjust)
+        df = df.groupby('Acc_Code').apply(sumGroup)
+        df['balance_bede'] = df['Bede'] - df['Best']
+        df['balance_best'] = df['Best'] - df['Bede']
+        df['balance_bede'] = df['balance_bede'].apply(negetiveToZiro)
+        df['balance_best'] = df['balance_best'].apply(negetiveToZiro)
+        df['balanceAdjust'] = df['Bede'] - df['Best'] - df['LtnComm']
+        conn = pyodbc.connect(conn_str_db)
+        query = f"SELECT * FROM ACC"
+        df_acc = pd.read_sql(query, conn)
+        df_acc = df_acc[['Code','Name','Mobile']]
+        df_acc = df_acc.rename(columns={'Code':'Acc_Code'})
+        df = df.join(df_acc.set_index('Acc_Code')).reset_index()
+        df = df.drop(columns=['level_1'])
+        df = df.fillna('')
+        df = df.to_dict('records')
+        return json.dumps({'reply':True, 'df':df})
+    else:
+        return ErrorCookie()
+
+def coustomer_balance_non_crypt(data):
+    code = data['code']
+    user = cookie(data)
+    user = json.loads(user)
+    username = user['user']['phone']
+    if user['replay']:
+        conn_str_db = f'DRIVER={{SQL Server}};SERVER={setting.ip_sql_server},{setting.port_sql_server};DATABASE={setting.database};UID={setting.username_sql_server};PWD={setting.password_sql_server}'
+        conn = pyodbc.connect(conn_str_db)
+        query = f"SELECT * FROM DOCB"
+        df = pd.read_sql(query, conn)
+        df['110'] = [group110(x,code) for x in df['Acc_Code']]
+        df = df[df['110']==True]        
+        df = df[['Acc_Code','Bede','Best','LtnComm']]
+        df = df.fillna('')
+        df['_children'] = df['LtnComm'].apply(decrypt)
+        df['_children'] = df['_children'].apply(removePassed)
+        df['LtnComm'] = df['_children'].apply(CulcBalanceAdjust)
+        df = df.groupby('Acc_Code').apply(sumGroup)
+        df['balance_bede'] = df['Bede'] - df['Best']
+        df['balance_best'] = df['Best'] - df['Bede']
+        df['balance_bede'] = df['balance_bede'].apply(negetiveToZiro)
+        df['balance_best'] = df['balance_best'].apply(negetiveToZiro)
+        df['balanceAdjust'] = df['Bede'] - df['Best'] - df['LtnComm']
+        conn = pyodbc.connect(conn_str_db)
+        query = f"SELECT * FROM ACC"
+        df_acc = pd.read_sql(query, conn)
+        df_acc = df_acc[['Code','Name','Mobile']]
+        df_acc = df_acc.rename(columns={'Code':'Acc_Code'})
+        df = df.join(df_acc.set_index('Acc_Code')).reset_index()
+        df = df.drop(columns=['level_1'])
+        df = df.fillna('')
+        df = df.to_dict('records')
         return json.dumps({'reply':True, 'df':df})
     else:
         return ErrorCookie()

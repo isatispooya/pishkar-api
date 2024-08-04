@@ -21,7 +21,7 @@ def get(data):
     username = user['user']['phone']
     if user['replay']:
         paymentPerson = pd.DataFrame(pishkarDb['paymentPerson'].find({'period':data['period']['Show'],'username':username},{'_id':0}))
-        if len(paymentPerson)==0 or data['recla']:
+        if len(paymentPerson)==0:# or data['recla']:
             consultantList = list(pishkarDb['cunsoltant'].find({'username':username},{'_id':0}))
             minimum = pd.DataFrame(pishkarDb['minimumSalary'].find({'username':username},{'_id':0,'username':0}))
             benefit = pd.DataFrame(pishkarDb['benefit'].find({'username':username, 'date':data['period']['Show']}))
@@ -122,10 +122,13 @@ def get(data):
                     SubConsultantList = berancheDF['SubConsultantList']
                     for nc in SubConsultantList:
                         dff = df[df['nationalCode']==nc]
-                        indexDf = list(dff.index)[0]
-                        summ = dff['reward'].sum()
-                        df['SubReward'][i] = df['SubReward'][i] + summ
-                        df['SubReward'][indexDf] = summ * -1
+                        if len(dff)>0:
+                            indexDf = list(dff.index)
+                            indexDf = indexDf[0]
+                            summ = dff['reward'].sum()
+                            df['SubReward'][i] = df['SubReward'][i] + summ
+                            df['SubReward'][indexDf] = summ * -1
+                            
             if len(benefit)>0:
                 df = df.set_index('nationalCode').join(benefit,how='left').reset_index().fillna(0)
             else:
@@ -181,7 +184,20 @@ def perforator(data):
     user = json.loads(user)
     username = user['user']['phone']
     if user['replay']:
-        assing = pd.DataFrame(pishkarDb['assing'].find({'username':username,'consultant':data['nationalCode']},{'_id':0,'username':0}))
+        nationalCode = data['nationalCode']
+        consultant_ = pishkarDb['cunsoltant'].find({'username':username},{'_id':0})
+        consultant_list = [{'nc':data['nationalCode'],'fee':1}]
+        for i in consultant_:
+            if i['fristName'] == 'تلفیق':
+                ConsultantSelected = i['ConsultantSelected']
+                for j in ConsultantSelected:
+                    if j['code'] == data['nationalCode']:
+                        consultant_list.append({'nc':i['nationalCode'], 'fee':int(j['fee'])/100})
+
+        assing_list = []
+        for i in consultant_list:
+            assing_list.append(pd.DataFrame(pishkarDb['assing'].find({'username':username,'consultant':i['nc']},{'_id':0,'username':0})))
+        assing = pd.concat(assing_list)
         insurec = pd.DataFrame(pishkarDb['insurer'].find({'username':username},{'نام':1,'بیمه گر':1,'_id':0}))
         insurec = insurec.set_index('نام').to_dict(orient='dict')['بیمه گر']
         if len(assing)==0:
@@ -189,7 +205,6 @@ def perforator(data):
         df = pd.DataFrame(pishkarDb['Fees'].find({'username':username,'UploadDate':data['date']['Show']}))
         if len(df)==0:
             return json.dumps({'replay':False, 'msg':'هیچ بیمه نامه ای یافت نشد'})
-
         df = df.drop_duplicates(subset=['شماره بيمه نامه','کد رایانه صدور','كارمزد قابل پرداخت'],keep='last')
 
         df = df.set_index('شماره بيمه نامه')
@@ -205,9 +220,19 @@ def perforator(data):
         consultant = pishkarDb['cunsoltant'].find_one({'username':username,'nationalCode':data['nationalCode']},{'_id':0})
         df['feeRate'] = [feeRate(x,consultant) for x in df['feild']]
         df['fee'] = df['feeRate'] * df['كارمزد قابل پرداخت']
+        df['feeRate_talfigh'] = df['consultant']
+        for i in consultant_list:
+            df['feeRate_talfigh']= df['feeRate_talfigh'].replace(i['nc'],i['fee'])
+
+        df['fee'] = df['fee'] * df['feeRate_talfigh']
         df['fee'] = [round(x) for x in df['fee']]
         df = df[['تاریخ صدور بیمه نامه','رشته','بيمه گذار','comp','شماره بيمه نامه','fee']]
         df['comp'] = [insurec[x] for x in df['comp']]
+        
+        #تلفیق
+        
+        
+        
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
