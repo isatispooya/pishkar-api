@@ -762,18 +762,17 @@ def coustomer_balance(data):
     else:
         return ErrorCookie()
 
-def coustomer_balance_non_crypt(data):
+def coustomer_balance_api(data):
     code = data['code']
-    user = cookie(data)
-    user = json.loads(user)
-    username = user['user']['phone']
-    if user['replay']:
+    key = data['key']
+    if key=='farasahm':
         conn_str_db = f'DRIVER={{SQL Server}};SERVER={setting.ip_sql_server},{setting.port_sql_server};DATABASE={setting.database};UID={setting.username_sql_server};PWD={setting.password_sql_server}'
         conn = pyodbc.connect(conn_str_db)
         query = f"SELECT * FROM DOCB"
         df = pd.read_sql(query, conn)
         df['110'] = [group110(x,code) for x in df['Acc_Code']]
         df = df[df['110']==True]        
+        print(df)
         df = df[['Acc_Code','Bede','Best','LtnComm']]
         df = df.fillna('')
         df['_children'] = df['LtnComm'].apply(decrypt)

@@ -740,6 +740,14 @@ def coustomer_balance():
     data = request.get_json()
     return reports.coustomer_balance(data)
 
+
+@app.route('/coustomer/balance/api',methods = ['POST', 'GET'])
+def coustomer_balance_api():
+    data = request.get_json()
+    return reports.coustomer_balance_api(data)
+
+
+
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)
     app.run(host='0.0.0.0', debug=True)
