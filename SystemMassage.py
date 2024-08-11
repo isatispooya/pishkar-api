@@ -198,7 +198,10 @@ def revival(data):
                 for i in range(len(df)):
                     comp = df[i]['comp']
                     code = splitCode(df[i]['پرداخت کننده حق بیمه'])
-                    df[i]['تلفن همراه'] = pishkarDb['customers'].find_one({'username':username,'comp':comp,'code':code})['تلفن همراه']
+                    try:
+                        df[i]['تلفن همراه'] = pishkarDb['customers'].find_one({'username':username,'comp':comp,'code':code})['تلفن همراه']
+                    except:
+                        df[i]['تلفن همراه'] = ''
                 return json.dumps({'replay':True,"df":df})
 
 
@@ -262,7 +265,10 @@ def revival(data):
         for i in range(len(df)):
             comp = df[i]['comp']
             code = splitCode(df[i]['پرداخت کننده حق بیمه'])
-            df[i]['تلفن همراه'] = pishkarDb['customers'].find_one({'username':username,'comp':comp,'code':code})['تلفن همراه']
+            try:
+                df[i]['تلفن همراه'] = pishkarDb['customers'].find_one({'username':username,'comp':comp,'code':code})['تلفن همراه']
+            except:
+                df[i]['تلفن همراه'] = ''
             if df[i]['RevivalResponse'] != 'No':
                 df[i]['ExpirationName'] = str(df[i]['RevivalResponse']).replace('no need','عدم نیاز').replace('not extended','تمدید نشد').replace('extended','تمدید شد')
 
