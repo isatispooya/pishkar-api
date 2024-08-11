@@ -772,7 +772,6 @@ def coustomer_balance_api(data):
         df = pd.read_sql(query, conn)
         df['110'] = [group110(x,code) for x in df['Acc_Code']]
         df = df[df['110']==True]        
-        print(df)
         df = df[['Acc_Code','Bede','Best','LtnComm']]
         df = df.fillna('')
         df['_children'] = df['LtnComm'].apply(decrypt)
@@ -796,3 +795,51 @@ def coustomer_balance_api(data):
         return json.dumps({'reply':True, 'df':df})
     else:
         return ErrorCookie()
+    
+
+
+# for Farasahm SMS Panel
+def issuing_api (data):
+    key = data['key']
+    if key !='farasahm':
+        return json.dumps({'reply' : False})
+    issuing =pishkarDb['issuing'].find({},{'_id':0})
+    df_issuing = pd.DataFrame(issuing)
+    df_issuing = df_issuing.drop (
+        columns=[
+            'ردیف',
+            'شعبه واحد صدور بیمه نامه یا الحاقیه',
+            'كد رايانه بيمه نامه',
+            'کد رایانه صدور بیمه نامه',
+            'شماره بيمه نامه',
+            'کد رایانه عملیات',
+            'شماره الحاقیه',
+            'شماره سند دريافتي',
+            'شرح دريافتي',
+            'شماره حساب',
+            'بانك',
+            'واحدصدور بیمه نامه',
+            'حساب واگذاري',
+            'نمایندگی بیمه نامه',
+            'تاريخ واگذاري',
+            'تاريخ سند دريافتي',
+            'تاريخ وضعیت وصول',
+            'وضعيت وصول',
+            'شرح عملیات',
+            'username',
+            'longTime',
+            'expier',
+            'بدهی باقی مانده',
+            'مدت زمان',
+            ])
+    customers =pishkarDb['customers'].find({},{'_id':0 , 'بيمه گذار' :1 , 'تلفن همراه' :1 , 'کد ملي بيمه گذار':1})
+    df_customers = pd.DataFrame(customers)
+    df = pd.merge(df_issuing, df_customers, left_on='پرداخت کننده حق بیمه', right_on='بيمه گذار', how='inner')
+    df['بیمه گذار'] = df['پرداخت کننده حق بیمه']   
+    df = df.drop(columns=['پرداخت کننده حق بیمه', 'بيمه گذار'])
+    df = df.rename(columns={'تلفن همراه' : 'شماره تماس' , 'کد ملي بيمه گذار':'کد ملی' , 'بیمه گذار':'نام و نام خانوادگی' })
+    df = df.to_dict('records')
+
+    return json.dumps({'dict_df' : df})
+    
+    

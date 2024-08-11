@@ -748,6 +748,15 @@ def coustomer_balance_api():
 
 
 
+@app.route('/report/issuing/api',methods = ['POST', 'GET'])
+def issuing_api():
+    data = request.get_json()
+    return reports.issuing_api(data)
+
+
+
+
+
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)
     app.run(host='0.0.0.0', debug=True)
