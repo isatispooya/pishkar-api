@@ -483,11 +483,17 @@ def setsettingsms(data):
     username = user['user']['phone']
     if user['replay']:
         pishkarDb['settingSms'].delete_many({'username':username})
-        for i in data['listSend']:
+        pishkarDb['balanceSms'].delete_many({'username':username})
+        for i in data['listSend'] :
             dic = i
             dic['username'] = username
             pishkarDb['settingSms'].insert_one(dic)
+        dic = data['balance'] 
+        dic ['username']= username
+        pishkarDb['balanceSms'].insert_one(dic)
+
         return json.dumps({'replay':True})
+
     else:
         return ErrorCookie()
 
