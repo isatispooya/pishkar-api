@@ -505,9 +505,11 @@ def getsettingsms(data):
     username = user['user']['phone']
     if user['replay']:
         df = pd.DataFrame(pishkarDb['settingSms'].find({'username':username},{'_id':0,'username':0}))
+        df_balance = pd.DataFrame(pishkarDb['balanceSms'].find_one({'username':username},{'_id':0,'username':0}))
         df = df.sort_values('name')
         df = df.to_dict('records')
-        return json.dumps({'replay':True,'df':df})
+        df_balance = df_balance.to_dict('records')
+        return json.dumps({'replay':True,'df':df , 'bakance' : df_balance})
     else:
         return ErrorCookie()
 
