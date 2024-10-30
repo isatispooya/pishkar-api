@@ -5,10 +5,21 @@ import pandas as pd
 from SystemMassage import splitCode
 from customers import splitName
 import time
+import setting
 from sms import SendSms , CheckDeliver
+from reports import decrypt, group110, removePassed, CulcBalanceAdjust,negetiveToZiro
+import pyodbc
+
+
 client = pymongo.MongoClient()
 pishkarDb = client['pishkar']
 
+def sumGroup(df):
+    Bede = df['Bede'].sum()
+    Best = df['Best'].sum()
+    LtnComm = df['LtnComm'].sum()
+    dff = pd.DataFrame([{'Bede':Bede,'Best':Best,'LtnComm':LtnComm}])
+    return dff
 
 
 def getInsByUsernameAndEnding(username,prevDay):
@@ -88,10 +99,64 @@ def checkDelivers():
                     pishkarDb['SendedSms'].update_one({'_id':df['_id'][i]},{'$set':{'deliver':True}})
 
 
+
+
+def SmsBalance():
+    config = pishkarDb['balanceSms'].find_one()
+    if str(datetime.datetime.now().weekday()) == '0' and str(datetime.datetime.now().hour)==str(9):
+        conn_str_db = f'DRIVER={{SQL Server}};SERVER={setting.ip_sql_server},{setting.port_sql_server};DATABASE={setting.database};UID={setting.username_sql_server};PWD={setting.password_sql_server}'
+        conn = pyodbc.connect(conn_str_db)
+        query = f"SELECT * FROM DOCB"
+        df = pd.read_sql(query, conn)
+        df['110'] = [group110(x,'03') for x in df['Acc_Code']]
+        df = df[df['110']==True]        
+        df = df[['Acc_Code','Bede','Best','LtnComm']]
+        df = df.fillna('')
+        df['LtnComm'] = df['LtnComm'].apply(decrypt)
+        df['LtnComm'] = df['LtnComm'].apply(removePassed)
+        df['LtnComm'] = df['LtnComm'].apply(CulcBalanceAdjust)
+        df = df.groupby('Acc_Code').apply(sumGroup)
+        df['balance_bede'] = df['Bede'] - df['Best']
+        df = df[df['balance_bede']>=int(config['from'])]
+        df['balance_best'] = df['Best'] - df['Bede']
+        df['balance_bede'] = df['balance_bede'].apply(negetiveToZiro)
+        df['balance_best'] = df['balance_best'].apply(negetiveToZiro)
+        df['balanceAdjust'] = df['Bede'] - df['Best'] - df['LtnComm']
+        conn = pyodbc.connect(conn_str_db)
+        query = f"SELECT * FROM ACC"
+        df_acc = pd.read_sql(query, conn)
+        df_acc = df_acc[['Code','Name','Mobile']]
+        df_acc = df_acc.rename(columns={'Code':'Acc_Code'})
+        df = df.join(df_acc.set_index('Acc_Code')).reset_index()
+        df = df.drop(columns=['level_1'])
+        df = df.fillna('')
+        df['balance_bede'] = df['balance_bede'].apply(int)
+        df['balanceAdjust'] = df['balanceAdjust'].apply(int)
+
+        dfAdj = df[df['balanceAdjust']>0]
+        dfNoAdj = df[df['balanceAdjust']<=0]
+        dfAdj['balance_bede'] = dfAdj['balance_bede'].apply(str)
+        dfAdj['balanceAdjust'] = dfAdj['balanceAdjust'].apply(str)
+        dfNoAdj['balance_bede'] = dfNoAdj['balance_bede'].apply(str)
+        dfNoAdj['balanceAdjust'] = dfNoAdj['balanceAdjust'].apply(str)
+        dfNoAdj['text'] =  'بیمه گذار محترم '+ dfNoAdj['Name'] + '\n' + 'لطفا نسبت به پرداخت بدهی خود به مبلغ ' + dfNoAdj['balance_bede'] + 'ریال به شماره کارت 6104337811317393 به نام کارگزاری بیمه ایساتیس پویا واریز نمایید.باتشکر\n035220088'
+        dfAdj['text'] =  'بیمه گذار محترم '+ dfAdj['Name'] + '\n' + 'لطفا نسبت به پرداخت بدهی معوق خود به مبلغ ' + dfAdj['balanceAdjust'] + 'ریال به شماره کارت 6104337811317393 به نام کارگزاری بیمه ایساتیس پویا واریز نمایید.\nبدهی کامل شما:'+dfAdj['balance_bede']+' ریال میباشد\n035220088'
+        df = pd.concat([dfNoAdj,dfAdj])
+        for i in df.index:
+            mobile = df['Mobile'][i]
+            text = df['text'][i]
+            SendSms(mobile,text)
+    time.sleep(60*60)
+        
+
+
+
 while True:
     print('start loop')
+    SmsBalance()
     smsNoLifeRevival()
     time.sleep(300)
     checkDelivers()
     time.sleep(1500)
+    SmsBalance()
 

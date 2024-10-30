@@ -40,9 +40,15 @@ def diffTime(deltaTime):
 
 def diffTime2(deltaTime):
     now = str(datetime.datetime.now().date())
-    t = str(deltaTime).split('/')
-
-    d1 = str(JalaliDate(int(t[0]), int(t[1]), int(t[2])).to_gregorian())
+    try:
+        t = str(deltaTime).split('/')
+        d1 = str(JalaliDate(int(t[0]), int(t[1]), int(t[2])).to_gregorian())
+    except:
+        t = str(deltaTime).replace('/','').replace('-','')
+        t1 = t[:4]
+        t2 = t[4:6]
+        t3 = t[6:8]
+        d1 = str(JalaliDate(int(t1), int(t2), int(t3)).to_gregorian())
     res = (datetime.datetime.strptime(now, "%Y-%m-%d") - datetime.datetime.strptime(d1, "%Y-%m-%d")).days
     return res
 

@@ -35,7 +35,6 @@ app = Flask(__name__)
 CORS(app)
 app.config['THREADS_PER_PAGE'] = multiprocessing.cpu_count()
 
-
 @app.route('/sing/verificationphone',methods = ['POST', 'GET'])
 def verificationphone():
     data = request.get_json()
@@ -224,12 +223,12 @@ def management_getallrevivalbydate():
     data = request.get_json()
     return management.getallrevivalbydate(data)
 
-
 #----------------- General -----------------
 @app.route('/general/today',methods = ['POST', 'GET'])
 def general_today():
     return json.dumps({'today':str(timedate.toDay())})
 #----------------- feesreports -----------------
+
 @app.route('/feesreports/uploadfile',methods = ['POST', 'GET'])
 def feesreports_uploadfile():
     date = request.form['date']
@@ -760,3 +759,4 @@ def issuing_api():
 if __name__ == '__main__':
     #serve(app, host="0.0.0.0", port=8080,threads= 8)
     app.run(host='0.0.0.0', debug=True)
+    

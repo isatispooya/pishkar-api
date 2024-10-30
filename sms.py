@@ -8,6 +8,7 @@ psswrd ='5246043adeleh'
 
 def SendSms(snd,txt):
     resp = requests.get(url=f'http://tsms.ir/url/tsmshttp.php?from={frm}&to={snd}&username={usrnm}&password={psswrd}&message={txt}').json()
+    print(snd,txt)
     return resp
 
 def VerificationPhone(data):

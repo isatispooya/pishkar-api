@@ -46,7 +46,7 @@ def get(data):
         if len(assing)>0:
             assing['consultant'] = [str(x) for x in assing['consultant']]
             df = df.set_index('شماره بيمه نامه').join(assing.set_index('شماره بيمه نامه'),how='left').reset_index()
-            df['consultant' ] = NCtNameReplace(cl_consultant,df['consultant'])
+            df['consultant' ] = NCtNameReplace(cl_consultant, df['consultant'])
         else:
             df['consultant'] = 'بدون مشاور'
         if data['showAll']==False:
