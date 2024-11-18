@@ -228,7 +228,7 @@ def getcunsoltant(data):
                 df['cunsoltantName'] = [NCtName(cl_consultant,x) for x in df['cunsoltant']]
 
         df = df.fillna('')
-        df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp'])
+        df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp','شماره الحاقیه'])
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
