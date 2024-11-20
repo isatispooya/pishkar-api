@@ -211,7 +211,7 @@ def getcunsoltant(data):
         dfAssing = pd.DataFrame(pishkarDb['AssingIssuing'].find({'username':username},{'_id':0,'username':0}))
         if len(dfIssuing)==0:
             return json.dumps({'replay':False, 'msg':'هیچ صدوری ثبت نشده است'})
-        df = dfIssuing.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp','شماره الحاقیه'])
+        df = dfIssuing.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp','شماره الحاقیه','additional'])
         if len(dfAssing) == 0:
             df['cunsoltant'] = ''
         else:
@@ -228,7 +228,7 @@ def getcunsoltant(data):
                 df['cunsoltantName'] = [NCtName(cl_consultant,x) for x in df['cunsoltant']]
 
         df = df.fillna('')
-        df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp','شماره الحاقیه'])
+        df = df.drop_duplicates(subset=['کد رایانه صدور بیمه نامه','comp','شماره الحاقیه','additional'])
         df = df.to_dict(orient='records')
         return json.dumps({'replay':True,'df':df})
     else:
